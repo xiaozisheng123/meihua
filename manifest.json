@@ -1,0 +1,18 @@
+{
+    "name": "梅花易数",
+    "short_name": "梅花易数",
+    "description": "梅花易数排盘工具 - 万物皆有数，一卦知吉凶",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#0d1117",
+    "theme_color": "#1a1a2e",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

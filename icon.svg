@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#0d1117"/>
+  <circle cx="96" cy="96" r="72" fill="none" stroke="#d4af37" stroke-width="3"/>
+  <!-- 先天八卦图 -->
+  <!-- 乾 ☰ 上 -->
+  <g transform="translate(96,36)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
+    <line x1="-14" y1="-6" x2="14" y2="-6"/>
+    <line x1="-14" y1="0" x2="14" y2="0"/>
+    <line x1="-14" y1="6" x2="14" y2="6"/>
+  </g>
+  <!-- 坤 ☷ 下 -->
+  <g transform="translate(96,156)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
+    <line x1="-14" y1="-6" x2="-4" y2="-6"/>
+    <line x1="4" y1="-6" x2="14" y2="-6"/>
+    <line x1="-14" y1="0" x2="-4" y2="0"/>
+    <line x1="4" y1="0" x2="14" y2="0"/>
+    <line x1="-14" y1="6" x2="-4" y2="6"/>
+    <line x1="4" y1="6" x2="14" y2="6"/>
+  </g>
+  <!-- 离 ☲ 左 -->
+  <g transform="translate(36,96)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
+    <line x1="-10" y1="-6" x2="10" y2="-6"/>
+    <line x1="-10" y1="0" x2="-3" y2="0"/>
+    <line x1="3" y1="0" x2="10" y2="0"/>
+    <line x1="-10" y1="6" x2="10" y2="6"/>
+  </g>
+  <!-- 坎 ☵ 右 -->
+  <g transform="translate(156,96)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
+    <line x1="-10" y1="-6" x2="-3" y2="-6"/>
+    <line x1="3" y1="-6" x2="10" y2="-6"/>
+    <line x1="-10" y1="0" x2="10" y2="0"/>
+    <line x1="-10" y1="6" x2="-3" y2="6"/>
+    <line x1="3" y1="6" x2="10" y2="6"/>
+  </g>
+  <!-- 中心太极 -->
+  <circle cx="96" cy="96" r="14" fill="#d4af37" opacity="0.15"/>
+  <text x="96" y="102" text-anchor="middle" font-size="16" fill="#d4af37" font-family="serif">易</text>
+</svg>
