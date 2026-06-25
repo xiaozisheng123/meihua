@@ -148,37 +148,62 @@ function getLiuYao(shangGuaName, xiaGuaName) {
     return guaToYao(xiaGuaName).concat(guaToYao(shangGuaName));
 }
 
-// ========== 农历转换（简化版）==========
+// ========== 农历转换（基于 lunardate 验证数据）==========
+// LUNAR_CNY_DATA 在 lunar_data.js 中定义
+// 结构: [solar_month, solar_day, total_days, [month_sizes...]]
 
-function solarToLunarMonth(month, day) {
-    const jieQi = [
-        [[2,4],[3,5],1], [[3,6],[4,4],2], [[4,5],[5,5],3],
-        [[5,6],[6,5],4], [[6,6],[7,6],5], [[7,7],[8,6],6],
-        [[8,7],[9,7],7], [[9,8],[10,7],8], [[10,8],[11,6],9],
-        [[11,7],[12,6],10], [[12,7],[12,31],11], [[1,1],[1,4],11],
-        [[1,5],[2,3],12],
-    ];
-    for (let [start, end, lm] of jieQi) {
-        let [sm, sd] = start, [em, ed] = end;
-        if (sm <= em) {
-            if ((month === sm && day >= sd) || (sm < month && month < em) || (month === em && day <= ed))
-                return lm;
-        } else {
-            if ((month === sm && day >= sd) || (month === em && day <= ed))
-                return lm;
+function solarToLunar(year, month, day) {
+    // Get the lunar year index: find which lunar year this solar date falls in
+    // For solar year Y, if before CNY -> lunar year Y-1-1900, else Y-1900
+    let idx = year - 1900;
+    
+    // Check if we're before this year's CNY
+    if (idx < LUNAR_CNY_DATA.length) {
+        const [cnyM, cnyD] = LUNAR_CNY_DATA[idx];
+        if (month < cnyM || (month === cnyM && day < cnyD)) {
+            idx--; // Use previous year's CNY
         }
     }
-    return month;
+    
+    if (idx < 0 || idx >= LUNAR_CNY_DATA.length) {
+        return {month: month, day: day, monthName: '', dayName: ''};
+    }
+    
+    const [cnyM, cnyD, total, monthSizes] = LUNAR_CNY_DATA[idx];
+    
+    // Count days from CNY to target
+    // Determine which solar year the CNY falls in
+    const cnySolarYear = (cnyM > month || (cnyM === month && cnyD > day)) ? year - 1 : year;
+    const cnyDate = new Date(cnySolarYear, cnyM - 1, cnyD);
+    const targetDate = new Date(year, month - 1, day);
+    let offset = Math.round((targetDate - cnyDate) / 86400000);
+    
+    // Find lunar month and day
+    let lunarMonth = 1, lunarDay;
+    for (let i = 0; i < monthSizes.length; i++) {
+        if (offset < monthSizes[i]) {
+            lunarMonth = i + 1;
+            lunarDay = offset + 1;
+            break;
+        }
+        offset -= monthSizes[i];
+    }
+    if (!lunarDay) { lunarMonth = monthSizes.length; lunarDay = offset + 1; }
+    
+    const LUNAR_MONTH_NAMES = ['','正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','冬月','腊月'];
+    const prefix = ['','初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+    
+    return {
+        month: lunarMonth, day: lunarDay,
+        monthName: LUNAR_MONTH_NAMES[lunarMonth] || '',
+        dayName: prefix[lunarDay] || String(lunarDay),
+    };
 }
 
-// 农历日转换（查表法，1900-2100年常用日期）
-// 简化版：用公历日近似（精度足够起卦用）
-function solarToLunarDay(year, month, day) {
-    // 简化：直接用公历日（原著"日如初一一数"在时间起卦中影响较小）
-    return day;
-}
+function solarToLunarMonth(year, month, day) { return solarToLunar(year, month, day).month; }
+function solarToLunarDay(year, month, day) { return solarToLunar(year, month, day).day; }
 
-// ========== 互卦与变卦 ==========
+// ========== 互卦与变卦 ===================
 
 function getHuGua(shangGuaName, xiaGuaName, dongYao) {
     // 乾坤无互，互其变卦
@@ -619,7 +644,7 @@ function meihuaPan(params) {
         const dt = new Date(dateStr.replace(/-/g, '/'));
         let nianZhi = (dt.getFullYear() - 3) % 12;
         if (nianZhi === 0) nianZhi = 12;
-        const lunarMonth = solarToLunarMonth(dt.getMonth() + 1, dt.getDate());
+        const lunarMonth = solarToLunarMonth(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
         const dayNum = solarToLunarDay(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
         const shiChen = getShiChenNum(dt.getHours());
         shangGua = numberToGua(nianZhi + lunarMonth + dayNum);
@@ -709,9 +734,9 @@ function meihuaPan(params) {
     let lunarMonth;
     if (dateStr) {
         const dt = new Date(dateStr.replace(/-/g, '/'));
-        lunarMonth = solarToLunarMonth(dt.getMonth() + 1, dt.getDate());
+        lunarMonth = solarToLunarMonth(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
     } else {
-        lunarMonth = solarToLunarMonth(now.getMonth() + 1, now.getDate());
+        lunarMonth = solarToLunarMonth(now.getFullYear(), now.getMonth() + 1, now.getDate());
     }
 
     // 卦气旺衰
