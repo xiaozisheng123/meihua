@@ -1,5 +1,5 @@
 // Service Worker - 离线缓存
-const CACHE_NAME = 'meihua-v3.6.0';
+const CACHE_NAME = 'meihua-v3.7.0';
 const CACHE_FILES = [
     './',
     './index.html',
@@ -7,6 +7,7 @@ const CACHE_FILES = [
     './app.js',
     './ui.js',
     './data.js',
+    './lunar_data.js',
     './manifest.json',
     './icon.svg',
 ];
@@ -26,14 +27,24 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-    e.respondWith(
-        caches.match(e.request).then(res => res || fetch(e.request).then(resp => {
-            // 缓存新资源
-            if (resp.status === 200 && e.request.method === 'GET') {
+    // 对于非导航请求，先尝试网络，失败后回退缓存
+    if (e.request.mode === 'navigate') {
+        e.respondWith(
+            fetch(e.request).then(resp => {
                 const respClone = resp.clone();
                 caches.open(CACHE_NAME).then(cache => cache.put(e.request, respClone));
-            }
-            return resp;
-        }).catch(() => caches.match('./index.html')))
-    );
+                return resp;
+            }).catch(() => caches.match(e.request).then(res => res || caches.match('./index.html')))
+        );
+    } else {
+        e.respondWith(
+            caches.match(e.request).then(res => res || fetch(e.request).then(resp => {
+                if (resp.status === 200 && e.request.method === 'GET') {
+                    const respClone = resp.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(e.request, respClone));
+                }
+                return resp;
+            }).catch(() => caches.match('./index.html')))
+        );
+    }
 });
