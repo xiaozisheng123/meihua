@@ -1,5 +1,5 @@
 // ============================================================
-// 梅花易数 UI 逻辑
+// 梅花易数 UI 逻辑 v3.7.0
 // ============================================================
 
 (function() {
@@ -8,6 +8,18 @@
     let selectedMethod = null;
     let selectedQuestion = '通用';
     let selectedColor = null;
+
+    // ========== 各起卦法占法原文 ==========
+    const METHOD_QUOTES = {
+        'number': '《梅花易数·占法》："凡占之法，以数起卦。或以数之分为二，以上卦下卦。或以数加时起卦。三数起卦，以第一数为上卦，第二数为下卦，第三数为动爻。两数起卦，以上卦先天数加下卦先天数加时辰数除六取动爻。"',
+        'time': '《梅花易数·占法》："以年月日时起卦。子年一数，丑年二数，直至亥年十二数。月如正月一数，直至十二月。日如初一一数，直至三十日。时如子时一数，直至亥时十二数。年月日数共几位，以八除之，余数为上卦；年月日时数共几位，以八除之，余数为下卦；以六除之，余数为动爻。"',
+        'text': '《梅花易数·物数占》："如闻一句语，即以其字数分卦。字数÷八取余为上卦，加时数÷八取余为下卦，合卦数加时数÷六取动爻。"',
+        'sound': '《梅花易数·物数占》："凡闻声音，数得几数，起作上卦；加时数作下卦。如闻扣门三声，以三为上卦，加时数为下卦。声数÷八取余为上卦，加时数÷八取余为下卦，合数÷六取动爻。"',
+        'stroke': '《梅花易数·字画占》："见字以笔画数起卦。以笔画数÷八取余为上卦，加时数÷八取余为下卦，合数÷六取动爻。如西林寺额'林'字无两勾，上下各木各八画，共十六画，以之起卦。"',
+        'color': '《梅花易数·占法》："以物色分八卦。赤色为离，白色为乾，黑色为坎，青色为震，黄色为坤，金色为兑。以所见面之颜色为上卦，加时数为下卦。后天端法兼用爻辞断之。"',
+        'person': '《梅花易数·后天端法》："以人来方起卦，以角色为上卦。父为乾，母为坤，长男为震，长女为巽，中男为坎，中女为离，少男为艮，少女为兑。若兼知方位，则以方位为下卦；不知方位，则加时数为下卦。后天之卦兼用爻辞。"',
+        'fangwei': '《梅花易数·后天端法》："以物为上卦，方位为下卦，合物卦之数与方卦之数加时数以取动爻。东为震，南为离，西为兑，北为坎，东南为巽，西南为坤，西北为乾，东北为艮。后天之卦兼用爻辞断之。"',
+    };
 
     // ========== 起卦方式选择 ==========
     document.querySelectorAll('.method-btn').forEach(btn => {
@@ -20,6 +32,16 @@
             document.querySelectorAll('.input-card').forEach(c => c.style.display = 'none');
             const card = document.getElementById('input-' + selectedMethod);
             if (card) card.style.display = 'block';
+
+            // 显示占法原文
+            const quoteBox = document.getElementById('method-quote');
+            const quoteText = document.getElementById('quote-text');
+            if (METHOD_QUOTES[selectedMethod]) {
+                quoteText.textContent = METHOD_QUOTES[selectedMethod];
+                quoteBox.style.display = 'block';
+            } else {
+                quoteBox.style.display = 'none';
+            }
         });
     });
 
@@ -68,6 +90,16 @@
                 const textVal = document.getElementById('text-input').value.trim();
                 if (!textVal) { alert('请输入文字内容'); return; }
                 params.text = textVal;
+                break;
+            case 'sound':
+                const soundVal = document.getElementById('sound-input').value.trim();
+                if (!soundVal) { alert('请输入声音次数'); return; }
+                params.soundCount = parseInt(soundVal);
+                break;
+            case 'stroke':
+                const strokeVal = document.getElementById('stroke-input').value.trim();
+                if (!strokeVal) { alert('请输入笔画数'); return; }
+                params.strokeCount = parseInt(strokeVal);
                 break;
             case 'color':
                 if (!selectedColor) { alert('请选择颜色'); return; }
@@ -125,7 +157,8 @@
         // 标题
         html += `<div class="result-title">`;
         html += `<h2>${r['本卦']}${r['本卦'] !== r['变卦'] ? ' → ' + r['变卦'] : ''}</h2>`;
-        html += `<div class="meta">问「${r['问事类型']}」 · ${r['起卦时间']} · 农历${r['农历月份']}月</div>`;
+        html += `<div class="meta">问「${r['问事类型']}」 · ${r['起卦方式']} · ${r['起卦时间']}</div>`;
+        html += `<div class="meta">${r['先天后天']}起卦 · 农历${r['农历月份']}月</div>`;
         html += `</div>`;
 
         // ===== 一、本卦与动爻 =====
@@ -139,6 +172,7 @@
             html += `<p>大象传：「${r['大象传']}」</p>`;
             if (r['大象白话']) html += `<p class="dim">${r['大象白话']}</p>`;
         }
+        if (r['爻辞使用建议']) html += `<p class="dim">📜 ${r['爻辞使用建议']}</p>`;
         html += `</div>`;
 
         // 六爻图
@@ -246,9 +280,28 @@
         }
         html += `</div></div>`;
 
-        // ===== 四、综合断语 =====
+        // ===== 四、十应参考 =====
+        const waiYing = r['外应'];
+        if (waiYing && waiYing['十应']) {
+            html += `<div class="section">`;
+            html += `<div class="section-title">四、十应参考</div>`;
+            html += `<div class="section-body">`;
+            if (waiYing['十应']['日应']) {
+                html += `<p>日应：${waiYing['十应']['日应']}</p>`;
+            }
+            if (waiYing['十应']['时应']) {
+                html += `<p>时应：${waiYing['十应']['时应']}</p>`;
+            }
+            if (waiYing['十应修正分'] !== undefined) {
+                const s = waiYing['十应修正分'];
+                html += `<p class="dim">十应修正分：${s > 0 ? '+' : ''}${s}（日应时应综合对吉凶的修正）</p>`;
+            }
+            html += `</div></div>`;
+        }
+
+        // ===== 五、综合断语 =====
         html += `<div class="section">`;
-        html += `<div class="section-title">四、综合断语</div>`;
+        html += `<div class="section-title">五、综合断语</div>`;
         html += `<div class="section-body">`;
         html += `<p><span class="score-badge ${scoreClass}">${score}/100 · ${pingJi}</span></p>`;
 
@@ -266,26 +319,27 @@
         html += `</ul>`;
         html += `</div></div>`;
 
-        // ===== 五、外应参考 =====
-        const waiYing = r['外应'];
+        // ===== 六、外应参考 =====
         if (waiYing) {
-            html += `<div class="section">`;
-            html += `<div class="section-title">五、外应参考</div>`;
-            html += `<div class="section-body">`;
-            const tiYingData = SHI_YING_TI_GUA[tiGua];
-            if (tiYingData) {
-                html += `<p>体卦${tiGua}（${tiYingData['象']}、${tiYingData['色']}色、${tiYingData['物']}），宜关注${tiYingData['方']}方机会。</p>`;
-            }
             const dyList = waiYing['动态外应'] || [];
-            if (dyList.length > 0) {
-                dyList.forEach(dy => {
-                    const gua = dy['匹配卦象'].split('（')[0];
-                    html += `<p class="highlight">外应：见「${dy['匹配关键词']}」→ 属${gua}（${dy['与体卦关系']}）</p>`;
-                    if (dy['断辞']) html += `<p class="dim">${dy['断辞']}</p>`;
-                });
+            const tiYingData = SHI_YING_TI_GUA[tiGua];
+            if (dyList.length > 0 || tiYingData) {
+                html += `<div class="section">`;
+                html += `<div class="section-title">六、外应参考</div>`;
+                html += `<div class="section-body">`;
+                if (tiYingData) {
+                    html += `<p>体卦${tiGua}（${tiYingData['象']}、${tiYingData['色']}色、${tiYingData['物']}），宜关注${tiYingData['方']}方机会。</p>`;
+                }
+                if (dyList.length > 0) {
+                    dyList.forEach(dy => {
+                        const gua = dy['匹配卦象'].split('（')[0];
+                        html += `<p class="highlight">外应：见「${dy['匹配关键词']}」→ 属${gua}（${dy['与体卦关系']}）</p>`;
+                        if (dy['断辞']) html += `<p class="dim">${dy['断辞']}</p>`;
+                    });
+                }
+                html += `<p>外应吉凶：<b class="${waiYing['外应吉凶'] === '吉' ? 'good' : waiYing['外应吉凶'] === '凶' ? 'warn' : 'dim'}">${waiYing['外应吉凶']}</b></p>`;
+                html += `</div></div>`;
             }
-            html += `<p>外应吉凶：<b class="${waiYing['外应吉凶'] === '吉' ? 'good' : waiYing['外应吉凶'] === '凶' ? 'warn' : 'dim'}">${waiYing['外应吉凶']}</b></p>`;
-            html += `</div></div>`;
         }
 
         return html;

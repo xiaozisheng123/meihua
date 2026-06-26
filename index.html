@@ -23,16 +23,32 @@
             <p class="subtitle">万物皆有数，一卦知吉凶</p>
         </div>
 
+        <!-- 先天取卦（第一行） -->
         <div class="card">
-            <label>起卦方式</label>
+            <label class="method-group-label">先天取卦</label>
             <div class="method-grid">
                 <button class="method-btn" data-method="number">数字起卦</button>
                 <button class="method-btn" data-method="time">时间起卦</button>
                 <button class="method-btn" data-method="text">字数起卦</button>
+                <button class="method-btn" data-method="sound">声音起卦</button>
+                <button class="method-btn" data-method="stroke">字画起卦</button>
+            </div>
+        </div>
+
+        <!-- 后天取卦（第二行） -->
+        <div class="card">
+            <label class="method-group-label">后天取卦</label>
+            <div class="method-grid">
                 <button class="method-btn" data-method="color">颜色起卦</button>
                 <button class="method-btn" data-method="person">人物起卦</button>
                 <button class="method-btn" data-method="fangwei">方位起卦</button>
             </div>
+        </div>
+
+        <!-- 占法原文提示 -->
+        <div class="card method-quote" id="method-quote" style="display:none">
+            <div class="quote-label">📖 占法原文</div>
+            <p id="quote-text" class="quote-text"></p>
         </div>
 
         <!-- 数字起卦 -->
@@ -51,9 +67,23 @@
 
         <!-- 字数起卦 -->
         <div class="card input-card" id="input-text" style="display:none">
-            <label>输入文字/声音内容</label>
+            <label>输入文字内容</label>
             <textarea id="text-input" placeholder="如：今日天气晴朗" rows="3"></textarea>
-            <p class="hint">按字数起卦，字数÷8为上卦</p>
+            <p class="hint">按总字数起卦，字数÷8取余为上卦</p>
+        </div>
+
+        <!-- 声音起卦 -->
+        <div class="card input-card" id="input-sound" style="display:none">
+            <label>声音次数</label>
+            <input type="number" id="sound-input" placeholder="如：听到敲门3声，输入3" min="1" inputmode="numeric">
+            <p class="hint">以声音次数为上卦，加时数为下卦</p>
+        </div>
+
+        <!-- 字画起卦 -->
+        <div class="card input-card" id="input-stroke" style="display:none">
+            <label>笔画数</label>
+            <input type="number" id="stroke-input" placeholder="如：林字16画，输入16" min="1" inputmode="numeric">
+            <p class="hint">以笔画数为上卦，加时数为下卦</p>
         </div>
 
         <!-- 颜色起卦 -->

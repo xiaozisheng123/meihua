@@ -52,6 +52,17 @@ body {
 }
 
 /* ========== 起卦方式按钮 ========== */
+.method-group-label {
+    display: block;
+    font-size: 14px;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+    border-bottom: 1px solid rgba(212,175,55,0.2);
+    padding-bottom: 6px;
+}
+
 .method-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -217,4 +228,23 @@ textarea { resize: none; }
     border: none;
     border-top: 1px dashed var(--card-border);
     margin: 12px 0;
+}
+
+/* ========== 占法原文 ========== */
+.method-quote {
+    background: rgba(212,175,55,0.05);
+    border: 1px solid rgba(212,175,55,0.2);
+}
+.quote-label {
+    font-size: 13px;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.quote-text {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+    font-style: italic;
+    white-space: pre-wrap;
 }
