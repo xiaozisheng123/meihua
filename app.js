@@ -1,6 +1,7 @@
 // ============================================================
-// 梅花易数排盘核心逻辑 v3.6.0 (JavaScript版)
+// 梅花易数排盘核心逻辑 v3.7.0 (JavaScript版)
 // 从 Python meihua_pan.py 手动翻译
+// v3.7.0: 修复P0变卦生克、P1单数起卦/月令/日干支、新增声音/字画起卦、激活十应
 // ============================================================
 
 // ========== 基础数据 ==========
@@ -87,6 +88,14 @@ const YUE_LING_WANG_SHUAI = {
 const WUXING_DIZHI = {
     '木':['寅','卯'], '火':['巳','午'], '土':['辰','戌','丑','未'],
     '金':['申','酉'], '水':['亥','子'],
+};
+
+// ★P1修复：日干支计算数据（基于儒略日）
+const TIAN_GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const DI_ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const DIZHI_WUXING = {
+    '子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火',
+    '午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水',
 };
 
 const FANG_WEI_MAP = {'东':4,'东南':5,'南':3,'西南':8,'西':2,'西北':1,'北':6,'东北':7};
@@ -202,6 +211,55 @@ function solarToLunar(year, month, day) {
 
 function solarToLunarMonth(year, month, day) { return solarToLunar(year, month, day).month; }
 function solarToLunarDay(year, month, day) { return solarToLunar(year, month, day).day; }
+
+// ★P1修复：节气月函数（用于月令旺衰），与朔望月分离
+// 时间起卦用 solarToLunarMonth（朔望月），旺衰用 solarToJieqiMonth（节气月）
+function solarToJieqiMonth(year, month, day) {
+    // 节气分点近似（以节为界，非以朔为界）
+    const jieQiLunar = [
+        [[2,4],[3,5],1],   [[3,6],[4,4],2],   [[4,5],[5,5],3],   [[5,6],[6,5],4],
+        [[6,6],[7,6],5],   [[7,7],[8,6],6],   [[8,7],[9,7],7],   [[9,8],[10,7],8],
+        [[10,8],[11,6],9], [[11,7],[12,6],10],
+        [[12,7],[12,31],11], [[1,1],[1,4],11], [[1,5],[2,3],12],
+    ];
+    for (let [start, end, lm] of jieQiLunar) {
+        const [sm, sd] = start, [em, ed] = end;
+        if (sm <= em) {
+            if ((month === sm && day >= sd) || (sm < month && month < em) || (month === em && day <= ed)) return lm;
+        } else {
+            if ((month === sm && day >= sd) || (month === em && day <= ed)) return lm;
+        }
+    }
+    return month;
+}
+
+// ★P1修复：日干支计算（基于儒略日）
+// 基准：2000年1月7日 = 庚午日（干支序号6），儒略日2451551
+function julianDayNumber(year, month, day) {
+    const a = Math.floor((14 - month) / 12);
+    const y = year + 4800 - a;
+    const m = month + 12 * a - 3;
+    return day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4)
+        - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+}
+
+function getRiGanZhi(year, month, day) {
+    const jdn = julianDayNumber(year, month, day);
+    const offset = ((jdn - 2451551) % 60 + 60) % 60;
+    const ganZhiIdx = (6 + offset) % 60;
+    const ganIdx = ganZhiIdx % 10;
+    const zhiIdx = ganZhiIdx % 12;
+    return {
+        gan: TIAN_GAN[ganIdx],
+        zhi: DI_ZHI[zhiIdx],
+        ganzhi: TIAN_GAN[ganIdx] + DI_ZHI[zhiIdx],
+    };
+}
+
+function getRiWuxing(year, month, day) {
+    const { zhi } = getRiGanZhi(year, month, day);
+    return DIZHI_WUXING[zhi] || '土';
+}
 
 // ========== 互卦与变卦 ===================
 
@@ -347,17 +405,31 @@ function getWaiYing(benGua, tiYong, waiYingInput) {
     const tiGua = tiYong['体卦'] || '';
     const tiWuxing = tiYong['体卦五行'] || '';
 
-    // 日应
+    // 日应（★P1修复：用儒略日精确计算日干支，替换公历日号取模12）
     const now = new Date();
-    const riZhi = (now.getDate() - 1) % 12 + 1;
-    const riWxMap = {1:'水',2:'水',3:'木',4:'木',5:'木',6:'木',7:'火',8:'火',9:'土',10:'土',11:'金',12:'金'};
-    const riWx = riWxMap[riZhi] || '土';
+    const riGanZhi = getRiGanZhi(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const riWx = DIZHI_WUXING[riGanZhi.zhi] || '土';
     let riYing;
-    if (riWx === tiWuxing) riYing = '日应比和体';
-    else if (WUXING_SHENG[riWx] === tiWuxing) riYing = '日应生体';
-    else if (WUXING_KE[riWx] === tiWuxing) riYing = '日应克体';
-    else riYing = `日属${riWx}`;
+    if (riWx === tiWuxing) riYing = `日应比和体（日支${riGanZhi.zhi}属${riWx}，日干支${riGanZhi.ganzhi}）`;
+    else if (WUXING_SHENG[riWx] === tiWuxing) riYing = `日应生体（日支${riGanZhi.zhi}属${riWx}生${tiWuxing}）`;
+    else if (WUXING_KE[riWx] === tiWuxing) riYing = `日应克体（日支${riGanZhi.zhi}属${riWx}克${tiWuxing}）`;
+    else if (WUXING_SHENG[tiWuxing] === riWx) riYing = `日应泄体（日支${riGanZhi.zhi}属${riWx}，体生日）`;
+    else if (WUXING_KE[tiWuxing] === riWx) riYing = `体克日应（日支${riGanZhi.zhi}属${riWx}，体克之）`;
+    else riYing = `日属${riWx}（日干支${riGanZhi.ganzhi}）`;
     waiYing['十应']['日应'] = riYing;
+
+    // 时应（★新增：占时时辰五行对体卦的修正）
+    const shiChenNum = getShiChenNum(now.getHours());
+    const shiZhi = DI_ZHI[shiChenNum - 1];
+    const shiWx = DIZHI_WUXING[shiZhi] || '土';
+    let shiYing;
+    if (shiWx === tiWuxing) shiYing = `时应比和体（时支${shiZhi}属${shiWx}）`;
+    else if (WUXING_SHENG[shiWx] === tiWuxing) shiYing = `时应生体（时支${shiZhi}属${shiWx}生${tiWuxing}）`;
+    else if (WUXING_KE[shiWx] === tiWuxing) shiYing = `时应克体（时支${shiZhi}属${shiWx}克${tiWuxing}）`;
+    else if (WUXING_SHENG[tiWuxing] === shiWx) shiYing = `时应泄体（时支${shiZhi}属${shiWx}，体生时）`;
+    else if (WUXING_KE[tiWuxing] === shiWx) shiYing = `体克时应（时支${shiZhi}属${shiWx}，体克之）`;
+    else shiYing = `时属${shiWx}（时支${shiZhi}）`;
+    waiYing['十应']['时应'] = shiYing;
 
     // 体卦外应参考
     if (SHI_YING_TI_GUA[tiGua]) {
@@ -408,6 +480,19 @@ function getWaiYing(benGua, tiYong, waiYingInput) {
     } else {
         waiYing['外应吉凶'] = baseJi;
     }
+
+    // ★激活十应：日应/时应对体用生克的修正分（卷三《占卜十应诀》）
+    let shiYingScore = 0;
+    for (let yk of ['日应', '时应']) {
+        const yv = waiYing['十应'][yk] || '';
+        if (yv.includes('生体')) shiYingScore += 5;
+        else if (yv.includes('克体')) shiYingScore -= 5;
+        else if (yv.includes('泄体')) shiYingScore -= 3;
+        else if (yv.includes('比和')) shiYingScore += 2;
+        else if (yv.includes('体克')) shiYingScore += 1;
+    }
+    waiYing['十应修正分'] = shiYingScore;
+
     return waiYing;
 }
 
@@ -593,6 +678,29 @@ function generateComprehensiveAdvice(result) {
     };
     if (qa[question]) advice.push(qa[question]);
 
+    // 外应结合问事类型
+    const waiYing = result['外应'] || {};
+    const dyList = waiYing['动态外应'] || [];
+    if (dyList.length > 0) {
+        const qyMap = {
+            '财运':'财运方面','事业':'事业方面','婚姻':'感情方面','健康':'健康方面',
+            '考试':'考试方面','投资':'投资方面','出行':'出行方面','诉讼':'诉讼方面',
+            '失物':'寻物方面','通用':'综合来看',
+        };
+        const prefix = qyMap[question] || '';
+        for (let dy of dyList) {
+            const gua = (dy['匹配卦象'] || '').split('（')[0];
+            const kw = dy['匹配关键词'] || '';
+            const relation = (dy['与体卦关系'] || '').split('（')[0];
+            const relMap = {
+                '生体':'对您有利','克体':'对您不利','比和':'与您同行',
+                '体生':'消耗精力','体克':'可掌控',
+            };
+            const relText = relMap[relation] || relation;
+            advice.push(`${prefix}见「${kw}」属${gua}，${relText}，须结合实际情境体会机锋。`);
+        }
+    }
+
     const yingQi = result['应期推算'] || {};
     if (yingQi['克体阻期'])
         advice.push('过程中会有阻碍，时间可能比预期延长，建议把预期放得宽一些。');
@@ -614,6 +722,8 @@ function meihuaPan(params) {
     const wuShu = params.wuShu || null;
     const question = params.question || '通用';
     const text = params.text || null;
+    const soundCount = params.soundCount || null;   // ★新增：声音起卦
+    const strokeCount = params.strokeCount || null; // ★新增：字画起卦
     const color = params.color || null;
     const person = params.person || null;
     const waiYingInput = params.waiYingInput || '';
@@ -633,10 +743,12 @@ function meihuaPan(params) {
             const shiChen = getShiChenNum(now.getHours());
             dongYaoSingle = numberToDongYao(shangGua + xiaGua + shiChen);
         } else {
+            // 单数起卦：《梅花易数》卷一《物数占》原文"以数为上卦，加时数为下卦"
+            // ★修复P1：原商余平分法不符原文，改用标准"以数为上卦"法
             const n = numList[0];
             const shiChen = getShiChenNum(now.getHours());
-            shangGua = numberToGua(n);
-            xiaGua = numberToGua(n + shiChen);
+            shangGua = numberToGua(n);                     // 以数为上卦
+            xiaGua = numberToGua(n + shiChen);              // 加时数为下卦
             dongYaoSingle = numberToDongYao(shangGua + xiaGua + shiChen);
         }
         qiGua = '数字';
@@ -668,12 +780,26 @@ function meihuaPan(params) {
         dongYaoSingle = numberToDongYao(wuShuVal + fangGua + shiChen);
         qiGua = '方位(后天)';
     } else if (text) {
-        const charCount = text.replace(/[\s，。]/g, '').length;
+        const charCount = text.replace(/[\s，。？！；：]/g, '').length;
         const shiChen = getShiChenNum(now.getHours());
         shangGua = numberToGua(charCount);
         xiaGua = numberToGua(charCount + shiChen);
         dongYaoSingle = numberToDongYao(shangGua + xiaGua + shiChen);
         qiGua = '字数';
+    } else if (soundCount) {
+        // ★新增：声音起卦（卷一"凡闻声音，数得几数，起作上卦；加时数作下卦"）
+        const shiChen = getShiChenNum(now.getHours());
+        shangGua = numberToGua(soundCount);
+        xiaGua = numberToGua(soundCount + shiChen);
+        dongYaoSingle = numberToDongYao(shangGua + xiaGua + shiChen);
+        qiGua = '声音';
+    } else if (strokeCount) {
+        // ★新增：字画起卦（卷一"见字以笔画数起卦"）
+        const shiChen = getShiChenNum(now.getHours());
+        shangGua = numberToGua(strokeCount);
+        xiaGua = numberToGua(strokeCount + shiChen);
+        dongYaoSingle = numberToDongYao(shangGua + xiaGua + shiChen);
+        qiGua = '字画';
     } else if (color) {
         const colorGuaName = COLOR_TO_GUA[color] || '离';
         const colorGuaNum = BA_GUA_NUM[colorGuaName];
@@ -719,7 +845,12 @@ function meihuaPan(params) {
 
     const tiHuSk = calcShengKe(tiHuName, tiWuxing, '体互');
     const yongHuSk = calcShengKe(yongHuName, tiWuxing, '用互');
-    const bianTiSk = calcShengKe(bianXiaName, tiWuxing, '变');
+    // 变卦对体卦的生克（卷三"变乃末后之期"）
+    // ★修复P0：变卦生克应取"变的用卦"与体卦比较
+    //   体在上卦(动爻在下卦)→用在下卦→变的下卦是用卦→检查 bianXia
+    //   体在下卦(动爻在上卦)→用在上卦→变的上卦是用卦→检查 bianShang
+    const bianYongName = tiInShang ? bianXiaName : bianShangName;
+    const bianTiSk = calcShengKe(bianYongName, tiWuxing, '变');
 
     // 断语
     const wenShiDuanYu = getWenShiDuanYu(question, tiYong);
@@ -727,19 +858,21 @@ function meihuaPan(params) {
     // 外应
     const waiYing = getWaiYing(benGua, tiYong, waiYingInput);
 
-    // 吉凶评分
-    const jiXiongPingFen = getJiXiongPingFen(tiYong, benGua, huGua, bianGua);
+    // 吉凶评分（★激活十应：加入日应/时应修正分）
+    let jiXiongPingFen = getJiXiongPingFen(tiYong, benGua, huGua, bianGua);
+    const shiYingScore = waiYing['十应修正分'] || 0;
+    jiXiongPingFen = Math.max(0, Math.min(100, jiXiongPingFen + shiYingScore));
 
-    // 农历月份
+    // 农历月份（★P1修复：旺衰用节气月，起卦月数已在上方用朔望月）
     let lunarMonth;
     if (dateStr) {
         const dt = new Date(dateStr.replace(/-/g, '/'));
-        lunarMonth = solarToLunarMonth(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+        lunarMonth = solarToJieqiMonth(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
     } else {
-        lunarMonth = solarToLunarMonth(now.getFullYear(), now.getMonth() + 1, now.getDate());
+        lunarMonth = solarToJieqiMonth(now.getFullYear(), now.getMonth() + 1, now.getDate());
     }
 
-    // 卦气旺衰
+    // 卦气旺衰（使用节气月）
     const guaQi = getGuaQiWangShuai(tiYong, lunarMonth);
 
     // 应期
@@ -756,9 +889,11 @@ function meihuaPan(params) {
     // 象传数据
     const xiangData = GUA_XIANG_ZHUAN[benGua] || {};
 
+    const xianTian = ['数字','时间','字数','声音','字画'].includes(qiGua);
+
     return {
         '起卦方式': qiGua,
-        '先天后天': ['数字','时间','字数','声音'].includes(qiGua) ? '先天' : '后天',
+        '先天后天': xianTian ? '先天' : '后天',
         '本卦': benGua, '上卦': shangGuaName, '下卦': xiaGuaName,
         '六爻': liuYao, '动爻': dongYao, '动爻列表': dongList,
         '互卦': huGua, '互卦上卦': huShangName, '互卦下卦': huXiaName,
@@ -768,6 +903,8 @@ function meihuaPan(params) {
         '卦辞': guaCi, '大象传': xiangData['大象传'] || '',
         '大象白话': xiangData['大象白话'] || '', '卦辞白话': xiangData['卦辞白话'] || '',
         '动爻爻辞': dongYaoCi,
+        // ★P3修复：先天/后天断法区分
+        '爻辞使用建议': xianTian ? '先天起卦，止以卦象论吉凶，爻辞仅供参考' : '后天起卦，兼用爻辞断吉凶',
         '问事类型': normalizeQuestion(question),
         '断语': wenShiDuanYu,
         '外应': waiYing,
