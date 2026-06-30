@@ -96,15 +96,39 @@ body {
 /* ========== 颜色按钮 ========== */
 .color-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
     gap: 8px;
 }
 .color-btn {
-    padding: 14px; border-radius: 8px; border: 2px solid var(--card-border);
-    font-size: 15px; cursor: pointer; transition: all 0.2s;
-    background: #21262d; color: var(--text);
+    padding: 12px 4px; border-radius: 8px; border: 2px solid var(--card-border);
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+    color: #fff; text-align: center;
 }
 .color-btn.active { border-color: var(--gold); border-width: 3px; }
+.color-zi { background: #1a5c1a; }
+.color-lv { background: #8fbc8f; color: #333; }
+.color-chi { background: #c0392b; }
+.color-hei { background: #1a1a2e; }
+.color-yangbai { background: #f0f0f0; color: #333; }
+.color-yinbai { background: #b0b0b8; color: #333; }
+.color-yanghuang { background: #ffd700; color: #333; }
+.color-yinhuang { background: #8b6914; }
+.color-yanglan { background: #4682b4; }
+.color-yinlan { background: #4a90b8; }
+
+/* ========== 颜色说明 ========== */
+.color-phrase {
+    margin-top: 12px; padding: 12px;
+    background: #0d1117; border-radius: 8px;
+    border-left: 3px solid var(--gold);
+}
+.phrase-gua {
+    font-size: 15px; font-weight: 500; color: var(--gold); margin-bottom: 6px;
+}
+.color-phrase p {
+    font-size: 13px; line-height: 1.6; color: var(--text-secondary);
+    white-space: pre-line; margin: 0;
+}
 
 /* ========== 输入框 ========== */
 input[type="text"], input[type="number"], input[type="datetime-local"],

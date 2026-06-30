@@ -101,9 +101,10 @@ const DIZHI_WUXING = {
 const FANG_WEI_MAP = {'东':4,'东南':5,'南':3,'西南':8,'西':2,'西北':1,'北':6,'东北':7};
 
 const COLOR_TO_GUA = {
-    '红':'离','赤':'离','紫':'离','白':'乾','银':'乾',
-    '黑':'坎','蓝':'坎','青':'震','绿':'震',
-    '黄':'坤','褐':'坤','棕':'坤','橙':'艮','金':'兑','碧':'巽','青碧':'巽',
+    '青':'震','绿':'巽','赤':'离','黑':'坎',
+    '阳白':'乾','阴白':'兑',
+    '阳黄':'艮','阴黄':'坤',
+    '阳蓝':'乾','阴蓝':'坎',
 };
 
 const PERSON_TO_GUA = {
@@ -366,33 +367,385 @@ function getGuaCi(guaName) {
     return (LIU_SHI_SI_GUA_YAOCI[guaName] || {})['卦辞'] || '';
 }
 
-// ========== 外应匹配 ==========
+// ========== 外应匹配（Phase 1 升级版） ==========
 
-function matchWaiYingKeywords(userInput) {
-    if (!userInput) return [];
-    const results = [];
+// 构建关键词→卦映射字典
+let _keywordDict = null;
+function getKeywordDict() {
+    if (_keywordDict) return _keywordDict;
+    _keywordDict = {};
     for (let guaName in WAI_YING_LEI_XIANG) {
-        const data = WAI_YING_LEI_XIANG[guaName];
-        const matchedKw = [], matchedSnippets = [];
-        for (let kw of data['关键词']) {
-            if (userInput.includes(kw)) {
-                matchedKw.push(kw);
-                let idx = userInput.indexOf(kw);
-                let start = Math.max(0, idx - 2);
-                let end = Math.min(userInput.length, idx + kw.length + 2);
-                let snippet = userInput.substring(start, end);
-                if (!matchedSnippets.includes(snippet)) matchedSnippets.push(snippet);
+        for (let kw of WAI_YING_LEI_XIANG[guaName]['关键词']) {
+            if (!_keywordDict[kw]) _keywordDict[kw] = [];
+            if (!_keywordDict[kw].includes(guaName)) _keywordDict[kw].push(guaName);
+        }
+    }
+    return _keywordDict;
+}
+
+// 分词器：停用词屏蔽 + 最大正向匹配
+function tokenizeWaiYing(text) {
+    const dict = getKeywordDict();
+    const occupied = new Array(text.length).fill(false);
+
+    // Step 1: 标记停用词占据的位置（长词优先）
+    const sortedStop = STOP_WORDS.slice().sort((a, b) => b.length - a.length);
+    for (let i = 0; i < text.length; i++) {
+        for (let sw of sortedStop) {
+            if (i + sw.length <= text.length && text.substring(i, i + sw.length) === sw) {
+                for (let j = i; j < i + sw.length; j++) occupied[j] = true;
+                i += sw.length - 1;
+                break;
             }
         }
-        if (matchedKw.length > 0) {
-            results.push({
-                '卦': guaName, '关键词': matchedKw,
-                '关键词数': matchedKw.length, '原文片段': matchedSnippets,
+    }
+
+    // Step 2: 在未被停用词占据的位置上做最大正向匹配
+    const tokens = [];
+    const sortedKws = Object.keys(dict).sort((a, b) => b.length - a.length);
+    let i = 0;
+    while (i < text.length) {
+        if (occupied[i]) { i++; continue; }
+        let matched = false;
+        for (let kw of sortedKws) {
+            if (i + kw.length <= text.length && text.substring(i, i + kw.length) === kw) {
+                let allFree = true;
+                for (let j = i; j < i + kw.length; j++) {
+                    if (occupied[j]) { allFree = false; break; }
+                }
+                if (allFree) {
+                    tokens.push({ word: kw, position: i, guas: dict[kw] });
+                    i += kw.length;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if (!matched) i++;
+    }
+    return tokens;
+}
+
+// 否定检测：在关键词前3字符窗口内扫描否定词
+function checkNegation(text, position) {
+    const windowStart = Math.max(0, position - 3);
+    const window = text.substring(windowStart, position);
+    for (let neg of NEGATION_WORDS) {
+        if (window.includes(neg)) {
+            return { negated: true, negWord: neg };
+        }
+    }
+    return { negated: false };
+}
+
+// 程度词检测：在关键词前3字符窗口内扫描程度词
+function applyDegree(text, position) {
+    const windowStart = Math.max(0, position - 3);
+    const window = text.substring(windowStart, position);
+    let maxDegree = 0;
+    for (let dw in DEGREE_WORDS) {
+        if (window.includes(dw)) {
+            if (Math.abs(DEGREE_WORDS[dw]) > Math.abs(maxDegree)) {
+                maxDegree = DEGREE_WORDS[dw];
+            }
+        }
+    }
+    return maxDegree;
+}
+
+// 冲突消解：同一关键词命中多卦时，根据上下文线索词判定归属
+function resolveConflict(keyword, text, position, guas) {
+    if (guas.length <= 1) return guas;
+    const rule = CONFLICT_RESOLVE[keyword];
+    if (!rule) return guas;
+
+    const ctxStart = Math.max(0, position - 5);
+    const ctxEnd = Math.min(text.length, position + keyword.length + 5);
+    const context = text.substring(ctxStart, ctxEnd);
+
+    const resolved = [];
+    for (let gua of guas) {
+        const clues = rule.clues[gua] || [];
+        for (let clue of clues) {
+            if (context.includes(clue)) {
+                if (!resolved.includes(gua)) resolved.push(gua);
+                break;
+            }
+        }
+    }
+    if (resolved.length > 0) return resolved;
+
+    const def = rule.default;
+    if (def === '乾离并列' || def === '震巽并列') return guas;
+    if (def && def.length === 1) return [def];
+    return guas;
+}
+
+// 主匹配函数（替代旧版 matchWaiYingKeywords）
+function matchWaiYingKeywords(userInput) {
+    if (!userInput || !userInput.trim()) return [];
+
+    const text = userInput.trim();
+    const tokens = tokenizeWaiYing(text);
+
+    // 按卦收集命中
+    const guaHits = {};
+    for (let token of tokens) {
+        const negResult = checkNegation(text, token.position);
+        const degree = applyDegree(text, token.position);
+        const resolvedGuas = resolveConflict(token.word, text, token.position, token.guas);
+
+        const snippetStart = Math.max(0, token.position - 2);
+        const snippetEnd = Math.min(text.length, token.position + token.word.length + 2);
+        const snippet = text.substring(snippetStart, snippetEnd);
+
+        for (let gua of resolvedGuas) {
+            if (!guaHits[gua]) guaHits[gua] = [];
+            guaHits[gua].push({
+                keyword: token.word,
+                position: token.position,
+                negated: negResult.negated,
+                negWord: negResult.negWord || '',
+                degree: degree,
+                snippet: snippet,
             });
         }
     }
-    results.sort((a, b) => b['关键词数'] - a['关键词数']);
+
+    // 构建结果
+    const results = [];
+    for (let guaName in guaHits) {
+        const hits = guaHits[guaName];
+        const matchedKw = hits.map(h => h.keyword);
+        const matchedSnippets = [...new Set(hits.map(h => h.snippet))];
+        const allNegated = hits.every(h => h.negated);
+        const hasNegated = hits.some(h => h.negated);
+        const realKw = hits.filter(h => !h.negated).map(h => h.keyword);
+        const virtualKw = hits.filter(h => h.negated).map(h => h.keyword);
+
+        results.push({
+            '卦': guaName,
+            '关键词': matchedKw,
+            '关键词数': matchedKw.length,
+            '原文片段': matchedSnippets,
+            '是否虚象': allNegated,
+            '含虚象': hasNegated,
+            '实象关键词': realKw,
+            '虚象关键词': virtualKw,
+            '详细命中': hits,
+        });
+    }
+
+    // 排序：实象关键词数优先，其次总关键词数
+    results.sort((a, b) => {
+        const aReal = a['实象关键词'].length;
+        const bReal = b['实象关键词'].length;
+        if (aReal !== bReal) return bReal - aReal;
+        return b['关键词数'] - a['关键词数'];
+    });
+
     return results;
+}
+
+// ========== Phase 2/3: 象素提取 + 主从判定 + 组合象 + 解释链 ==========
+
+// 象素类型推断：根据关键词推断象素类型
+function inferXiangSuType(keyword) {
+    if (KEYWORD_TYPE_MAP[keyword]) return KEYWORD_TYPE_MAP[keyword];
+    // 回退推断：单字按卦属推断
+    if (['金','玉','珠','钱','镜','铜','铁','刀','剑','钟'].includes(keyword)) return '材质';
+    if (['父','老','翁','母','妇','男','女','子','人','长','少'].includes(keyword)) return '人物';
+    if (['马','牛','龙','蛇','鸡','鸟','犬','虎','鱼'].includes(keyword)) return '动物';
+    if (['东','南','西','北','东南','西北'].includes(keyword)) return '方位';
+    if (['红','黑','黄','赤','白','碧','苍'].includes(keyword)) return '颜色';
+    if (['圆','方','长','直'].includes(keyword)) return '形状';
+    if (['天','地','山','水','火','雷','风','泽'].includes(keyword)) return '自然物';
+    if (['破','碎','裂','走','跑','飞','吹','散','入','击'].includes(keyword)) return '动作';
+    if (['明','止','健','柔','顺','厚'].includes(keyword)) return '状态';
+    if (['声','音','响'].includes(keyword)) return '声音';
+    if (['春','夏','秋','冬'].includes(keyword)) return '时间';
+    return '自然物';
+}
+
+// Phase 3: 象素结构化提取
+function extractXiangSu(text) {
+    const tokens = tokenizeWaiYing(text);
+    const xiangSuList = [];
+    for (let token of tokens) {
+        const negResult = checkNegation(text, token.position);
+        const degree = applyDegree(text, token.position);
+        const resolvedGuas = resolveConflict(token.word, text, token.position, token.guas);
+        const xiangType = inferXiangSuType(token.word);
+        const weight = (XIANG_SU_WEIGHT[xiangType] || 0.5) + degree;
+
+        // 如果一个词命中多卦且无法消解，为每个卦生成独立象素
+        if (resolvedGuas.length > 1) {
+            for (let gua of resolvedGuas) {
+                xiangSuList.push({
+                    keyword: token.word,
+                    gua: gua,
+                    allGuas: resolvedGuas,
+                    type: xiangType,
+                    weight: weight,
+                    position: token.position,
+                    negated: negResult.negated,
+                    negWord: negResult.negWord || '',
+                    degree: degree,
+                });
+            }
+        } else {
+            const primaryGua = resolvedGuas[0] || '';
+            xiangSuList.push({
+                keyword: token.word,
+                gua: primaryGua,
+                allGuas: resolvedGuas,
+                type: xiangType,
+                weight: weight,
+                position: token.position,
+                negated: negResult.negated,
+                negWord: negResult.negWord || '',
+                degree: degree,
+            });
+        }
+    }
+    return xiangSuList;
+}
+
+// Phase 2: 主象/从象判定
+function determineMainSub(xiangSuList) {
+    if (xiangSuList.length === 0) return { main: null, sub: [] };
+
+    // 过滤掉全否定的虚象（但仍保留作为参考）
+    const real = xiangSuList.filter(x => !x.negated);
+    const virtual = xiangSuList.filter(x => x.negated);
+
+    // 实象按权重降序排列，权重相同时按位置升序（先出现的优先）
+    const sorted = real.slice().sort((a, b) => {
+        if (Math.abs(b.weight - a.weight) > 0.01) return b.weight - a.weight;
+        return a.position - b.position;
+    });
+
+    if (sorted.length === 0) {
+        // 全部是虚象
+        return { main: null, sub: [], virtual: virtual };
+    }
+
+    const main = sorted[0];
+    const sub = sorted.slice(1);
+    return { main, sub, virtual };
+}
+
+// Phase 2: 组合象查表
+function lookupCompositeXiang(mainGua, subGuaList) {
+    if (!mainGua) return null;
+    if (!subGuaList || subGuaList.length === 0) return null;
+
+    // 取权重最高的从象
+    const subGua = subGuaList[0].gua;
+    if (!subGua || subGua === mainGua) return null;
+
+    const key = mainGua + subGua;
+    return COMPOSITE_XIANG[key] || null;
+}
+
+// Phase 2: 复合应象查表（三要十应）
+function lookupCompositeYing(xiangSuList) {
+    if (xiangSuList.length < 2) return null;
+
+    // 按象素类型分组
+    const byType = {};
+    for (let xs of xiangSuList) {
+        if (xs.negated) continue;
+        if (!byType[xs.type]) byType[xs.type] = [];
+        byType[xs.type].push(xs);
+    }
+
+    // 检查各类组合
+    const typePairs = [
+        ['人物', '方位'], ['自然物', '人物'], ['颜色', '声音'],
+        ['声音', '颜色'], ['自然物', '自然物'],
+    ];
+
+    for (let [t1, t2] of typePairs) {
+        const list1 = byType[t1] || [];
+        const list2 = byType[t2] || [];
+        if (list1.length > 0 && list2.length > 0) {
+            // 尝试所有组合
+            for (let xs1 of list1) {
+                for (let xs2 of list2) {
+                    if (xs1 === xs2) continue;
+                    // 构建应象类型键
+                    let yingKey = '';
+                    if (t1 === '人物' && t2 === '方位') yingKey = '人应+方位应';
+                    else if (t1 === '自然物' && t2 === '人物') yingKey = '物应+人应';
+                    else if (t1 === '颜色' && t2 === '声音') yingKey = '色应+声应';
+                    else if (t1 === '声音' && t2 === '颜色') yingKey = '声应+色应';
+                    else if (t1 === '自然物' && t2 === '自然物') yingKey = '天应+物应';
+
+                    if (yingKey && COMPOSITE_YING[yingKey]) {
+                        const guaKey = xs1.gua + '+' + xs2.gua;
+                        const yingResult = COMPOSITE_YING[yingKey][guaKey];
+                        if (yingResult) {
+                            return {
+                                yingType: yingKey,
+                                xiang1: xs1.keyword,
+                                xiang2: xs2.keyword,
+                                gua1: xs1.gua,
+                                gua2: xs2.gua,
+                                duanCi: yingResult,
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+// Phase 3: 解释链生成
+function buildExplanationChain(text, xiangSuList, mainSub, composite, compositeYing) {
+    const chain = [];
+
+    // Step 1: 象素提取摘要
+    const realCount = xiangSuList.filter(x => !x.negated).length;
+    const virtualCount = xiangSuList.filter(x => x.negated).length;
+    chain.push(`【象素提取】从「${text}」中提取${xiangSuList.length}个象素` +
+        (realCount > 0 ? `（实象${realCount}个` : '（') +
+        (virtualCount > 0 ? `、虚象${virtualCount}个）` : '）'));
+
+    // Step 2: 主从判定
+    if (mainSub.main) {
+        const m = mainSub.main;
+        chain.push(`【主象判定】主象：${m.gua}（${m.keyword}，${m.type}，权重${m.weight.toFixed(1)}）`);
+        if (mainSub.sub.length > 0) {
+            const subStr = mainSub.sub.map(s => `${s.gua}（${s.keyword}，${s.type}）`).join('、');
+            chain.push(`【从象】${subStr}`);
+        }
+    } else if (mainSub.virtual && mainSub.virtual.length > 0) {
+        const vStr = mainSub.virtual.map(v => `${v.gua}（${v.keyword}）`).join('、');
+        chain.push(`【象型判定】全部为虚象：${vStr}，所应之象皆未现`);
+    }
+
+    // Step 3: 组合象断辞
+    if (composite) {
+        chain.push(`【组合象】${composite.xiangYi}（${composite.scene}）`);
+        chain.push(`【五行关系】${composite.relation}`);
+        chain.push(`【组合断辞】${composite.duanCi}`);
+    }
+
+    // Step 4: 复合应象（三要十应）
+    if (compositeYing) {
+        chain.push(`【三要十应·${compositeYing.yingType}】${compositeYing.duanCi}`);
+    }
+
+    // Step 5: 虚象处理
+    if (mainSub.virtual && mainSub.virtual.length > 0 && mainSub.main) {
+        const vKw = mainSub.virtual.map(v => v.keyword).join('、');
+        chain.push(`【虚象提示】「${vKw}」未见，此部分象意落空，须结合实象综合判断`);
+    }
+
+    return chain;
 }
 
 // ========== 外应断卦 ==========
@@ -456,13 +809,62 @@ function getWaiYing(benGua, tiYong, waiYingInput) {
                 const kwStr = m['关键词'].slice(0, 5).join('、');
                 const snippetStr = m['原文片段'].slice(0, 3).join('；');
 
-                waiYing['动态外应'].push({
+                // 虚象处理
+                const isVirtual = m['是否虚象'];
+                const hasVirtual = m['含虚象'];
+                let displayDuanCi = duanCi;
+                let displayJiLevel = jiLevel;
+
+                if (isVirtual) {
+                    const realKw = m['实象关键词'] || [];
+                    const virtualKw = m['虚象关键词'] || [];
+                    displayDuanCi = `所应之象（${virtualKw.join('、')}）未见、未现，此象落空。` +
+                        (duanCi ? ` 本应${duanCi}` : '') + ` 然象未显，吉凶减半，须待时日。`;
+                    if (jiLevel === '大吉') displayJiLevel = '中';
+                    else if (jiLevel === '吉') displayJiLevel = '中';
+                    else if (jiLevel === '大凶') displayJiLevel = '凶';
+                    else if (jiLevel === '凶') displayJiLevel = '中';
+                } else if (hasVirtual) {
+                    const virtualKw = m['虚象关键词'] || [];
+                    displayDuanCi = duanCi + `（注：「${virtualKw.join('、')}」未见，此部分象意落空）`;
+                }
+
+                const entry = {
                     '所见所闻': waiYingInput.trim(),
                     '匹配卦象': `${matchedGua}（${matchedWx}）`,
                     '匹配关键词': kwStr, '匹配片段': snippetStr,
-                    '与体卦关系': `${relation}（${jiLevel}）`,
-                    '断辞': duanCi, '吉凶': jiLevel,
-                });
+                    '与体卦关系': `${relation}（${displayJiLevel}）`,
+                    '断辞': displayDuanCi, '吉凶': displayJiLevel,
+                };
+                if (isVirtual) entry['象型'] = '虚象';
+                else if (hasVirtual) entry['象型'] = '半虚象';
+                else entry['象型'] = '实象';
+
+                waiYing['动态外应'].push(entry);
+            }
+
+            // ★Phase 2/3: 组合象 + 解释链
+            const xiangSuList = extractXiangSu(waiYingInput.trim());
+            const mainSub = determineMainSub(xiangSuList);
+            const composite = lookupCompositeXiang(
+                mainSub.main ? mainSub.main.gua : '',
+                mainSub.sub
+            );
+            const compositeYing = lookupCompositeYing(xiangSuList);
+            const explanationChain = buildExplanationChain(
+                waiYingInput.trim(), xiangSuList, mainSub, composite, compositeYing
+            );
+
+            if (composite || compositeYing || explanationChain.length > 1) {
+                waiYing['组合象分析'] = {
+                    '主象': mainSub.main ? `${mainSub.main.gua}（${mainSub.main.keyword}，${mainSub.main.type}）` : '无（全虚象）',
+                    '从象': mainSub.sub.map(s => `${s.gua}（${s.keyword}，${s.type}）`),
+                    '组合象意': composite ? composite.xiangYi : '',
+                    '组合断辞': composite ? composite.duanCi : '',
+                    '五行关系': composite ? composite.relation : '',
+                    '复合应象': compositeYing ? compositeYing.duanCi : '',
+                    '解释链': explanationChain,
+                };
             }
         } else {
             waiYing['外应类型'].push(`动态外应：输入「${waiYingInput.trim()}」未匹配到八卦类象`);
@@ -697,7 +1099,14 @@ function generateComprehensiveAdvice(result) {
                 '体生':'消耗精力','体克':'可掌控',
             };
             const relText = relMap[relation] || relation;
-            advice.push(`${prefix}见「${kw}」属${gua}，${relText}，须结合实际情境体会机锋。`);
+            const xiangType = dy['象型'] || '实象';
+            if (xiangType === '虚象') {
+                advice.push(`${prefix}未见「${kw}」属${gua}之象，所应之象未现，机缘未到，须待时日。`);
+            } else if (xiangType === '半虚象') {
+                advice.push(`${prefix}见「${kw}」属${gua}，${relText}，但部分象意落空，须结合实际情境体会机锋。`);
+            } else {
+                advice.push(`${prefix}见「${kw}」属${gua}，${relText}，须结合实际情境体会机锋。`);
+            }
         }
     }
 

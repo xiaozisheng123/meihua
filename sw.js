@@ -1,5 +1,5 @@
 // Service Worker - 离线缓存
-const CACHE_NAME = 'meihua-v3.7.0';
+const CACHE_NAME = 'meihua-v3.10.0';
 const CACHE_FILES = [
     './',
     './index.html',
