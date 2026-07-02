@@ -2,6 +2,7 @@
 const CACHE_NAME = 'meihua-v3.10.1';
 const CACHE_FILES = [
     './',
+    './2.png',
     './index.html',
     './style.css',
     './app.js',
