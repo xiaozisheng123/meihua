@@ -1,38 +1,140 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="40" fill="#0d1117"/>
-  <circle cx="96" cy="96" r="72" fill="none" stroke="#d4af37" stroke-width="3"/>
-  <!-- 先天八卦图 -->
-  <!-- 乾 ☰ 上 -->
-  <g transform="translate(96,36)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
-    <line x1="-14" y1="-6" x2="14" y2="-6"/>
-    <line x1="-14" y1="0" x2="14" y2="0"/>
-    <line x1="-14" y1="6" x2="14" y2="6"/>
+  <defs>
+    <style>
+      .taiji-group {
+      transform-origin: 96px 96px;
+      animation: spin 4s linear infinite;
+      }
+      @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+      }
+    </style>
+    <!-- 简化梅花模板：黑色描边，白色填充 -->
+    <g id="plum-outline">
+      <ellipse cx="0" cy="-6" rx="3" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1" />
+      <ellipse cx="0" cy="-6" rx="3" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1" transform="rotate(72)" />
+      <ellipse cx="0" cy="-6" rx="3" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1" transform="rotate(144)" />
+      <ellipse cx="0" cy="-6" rx="3" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1" transform="rotate(216)" />
+      <ellipse cx="0" cy="-6" rx="3" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1" transform="rotate(288)" />
+      <circle cx="0" cy="0" r="1.5" fill="#000000" />
+    </g>
+  </defs>
+
+  <!-- 纯白背景 -->
+  <rect width="192" height="192" rx="40" fill="#ffffff" />
+
+  <!-- 底部枯枝（折线，西南→向上至乾卦与坎卦之间） -->
+  <g fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <!-- 主枯枝折线 -->
+    <polyline points="30,150 38,148 96,142 120,125 140,100 148,85" stroke-width="2" />
+
+    <!-- 细小分枝（错开分布） -->
+    <polyline points="80,144 76,136" stroke-width="0.8" />
+    <polyline points="110,132 106,126" stroke-width="0.8" />
+    <polyline points="120,125 126,128" stroke-width="1" />
+    <polyline points="140,100 134,96" stroke-width="1" />
   </g>
-  <!-- 坤 ☷ 下 -->
-  <g transform="translate(96,156)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
-    <line x1="-14" y1="-6" x2="-4" y2="-6"/>
-    <line x1="4" y1="-6" x2="14" y2="-6"/>
-    <line x1="-14" y1="0" x2="-4" y2="0"/>
-    <line x1="4" y1="0" x2="14" y2="0"/>
-    <line x1="-14" y1="6" x2="-4" y2="6"/>
-    <line x1="4" y1="6" x2="14" y2="6"/>
+
+  <!-- 散落的黑色花瓣 -->
+  <g fill="none" stroke="#000000" stroke-width="1">
+    <ellipse cx="75" cy="155" rx="3" ry="1.5" transform="rotate(30 75 155)" />
+    <ellipse cx="65" cy="162" rx="2" ry="1" transform="rotate(15 65 162)" />
+    <ellipse cx="115" cy="138" rx="3" ry="1.5" transform="rotate(-20 115 138)" />
+    <ellipse cx="135" cy="120" rx="2.5" ry="1.5" transform="rotate(-60 135 120)" />
+    <ellipse cx="148" cy="100" rx="2" ry="1" transform="rotate(80 148 100)" />
+    <ellipse cx="152" cy="78" rx="1.5" ry="1" transform="rotate(-35 152 78)" />
+    <ellipse cx="98" cy="158" rx="2" ry="1" transform="rotate(-15 98 158)" />
+    <ellipse cx="125" cy="110" rx="2" ry="1" transform="rotate(40 125 110)" />
   </g>
-  <!-- 离 ☲ 左 -->
-  <g transform="translate(36,96)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
-    <line x1="-10" y1="-6" x2="10" y2="-6"/>
-    <line x1="-10" y1="0" x2="-3" y2="0"/>
-    <line x1="3" y1="0" x2="10" y2="0"/>
-    <line x1="-10" y1="6" x2="10" y2="6"/>
+
+  <!-- 梅花：贴近最近枝干，边缘重叠 -->
+  <use href="#plum-outline" x="60" y="142" />
+  <use href="#plum-outline" x="92" y="142" />
+  <use href="#plum-outline" x="130" y="114" />
+  <use href="#plum-outline" x="148" y="82" />
+
+  <!-- 先天八卦（正方形卦象，16x16，位置靠外） -->
+  <g fill="none" stroke="#000000" stroke-width="1.5" stroke-linecap="round">
+    <!-- 乾 ☰ 上（南，天） -->
+    <g transform="translate(96, 18)">
+      <line x1="-8" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 坤 ☷ 下（北，地） -->
+    <g transform="translate(96, 174)">
+      <line x1="-8" y1="-4" x2="-2" y2="-4" /><line x1="2" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="-2" y2="0" /><line x1="2" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="-2" y2="4" /><line x1="2" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 离 ☲ 左（东，火） -->
+    <g transform="translate(18, 96)">
+      <line x1="-8" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="-2" y2="0" /><line x1="2" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 坎 ☵ 右（西，水） -->
+    <g transform="translate(174, 96)">
+      <line x1="-8" y1="-4" x2="-2" y2="-4" /><line x1="2" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="-2" y2="4" /><line x1="2" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 兑 ☱ 左上（东南，泽） -->
+    <g transform="translate(41, 41)">
+      <line x1="-8" y1="-4" x2="-2" y2="-4" /><line x1="2" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 震 ☳ 左下（东北，雷） -->
+    <g transform="translate(36, 158)">
+      <line x1="-8" y1="-4" x2="-2" y2="-4" /><line x1="2" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="-2" y2="0" /><line x1="2" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 巽 ☴ 右上（西南，风） -->
+    <g transform="translate(151, 41)">
+      <line x1="-8" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="-2" y2="4" /><line x1="2" y1="4" x2="8" y2="4" />
+    </g>
+    <!-- 艮 ☶ 右下（西北，山） -->
+    <g transform="translate(151, 151)">
+      <line x1="-8" y1="-4" x2="8" y2="-4" />
+      <line x1="-8" y1="0" x2="-2" y2="0" /><line x1="2" y1="0" x2="8" y2="0" />
+      <line x1="-8" y1="4" x2="-2" y2="4" /><line x1="2" y1="4" x2="8" y2="4" />
+    </g>
   </g>
-  <!-- 坎 ☵ 右 -->
-  <g transform="translate(156,96)" fill="none" stroke="#d4af37" stroke-width="2.5" stroke-linecap="round">
-    <line x1="-10" y1="-6" x2="-3" y2="-6"/>
-    <line x1="3" y1="-6" x2="10" y2="-6"/>
-    <line x1="-10" y1="0" x2="10" y2="0"/>
-    <line x1="-10" y1="6" x2="-3" y2="6"/>
-    <line x1="3" y1="6" x2="10" y2="6"/>
+
+  <!-- 竖排文字：阴阳得位，理在数先（宋金体风格，错开布局） -->
+  <g fill="#000000" font-family="'Songti SC', 'Noto Serif CJK SC', 'SimSun', 'FangSong', 'KaiTi', serif" font-size="8" text-anchor="middle">
+    <!-- 右列：阴阳得位（靠上） -->
+    <text x="62" y="74">阴</text>
+    <text x="62" y="88">阳</text>
+    <text x="62" y="102">得</text>
+    <text x="62" y="116">位</text>
+    <!-- 左列：理在数先（向下错开一个字） -->
+    <text x="46" y="88">理</text>
+    <text x="46" y="102">在</text>
+    <text x="46" y="116">数</text>
+    <text x="46" y="130">先</text>
   </g>
-  <!-- 中心太极 -->
-  <circle cx="96" cy="96" r="14" fill="#d4af37" opacity="0.15"/>
-  <text x="96" y="102" text-anchor="middle" font-size="16" fill="#d4af37" font-family="serif">易</text>
+
+  <!-- 中心动态旋转的标准阴阳鱼太极图 -->
+  <g class="taiji-group">
+    <!-- 黑色背景圆 -->
+    <circle cx="96" cy="96" r="24" fill="#000000" />
+
+    <!-- 白色半圆（阳鱼） -->
+    <path d="M96,72 A24,24 0 0,1 96,120 A12,12 0 0,1 96,96 A12,12 0 0,0 96,72 Z" fill="#ffffff" />
+
+    <!-- 上方黑中白点（阳中阴眼） -->
+    <circle cx="96" cy="84" r="4" fill="#ffffff" />
+
+    <!-- 下方白中黑点（阴中阳眼） -->
+    <circle cx="96" cy="108" r="4" fill="#000000" />
+
+    <!-- 太极外圈（细描边） -->
+    <circle cx="96" cy="96" r="24" fill="none" stroke="#000000" stroke-width="1" />
+  </g>
 </svg>
